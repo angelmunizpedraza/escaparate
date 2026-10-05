@@ -7,4 +7,4 @@ binding = "AI"
 
 [vars]
 ALLOWED_ORIGINS = "https://angelmunizpedraza.github.io"
-# La clave va como secreto: npx wrangler secret put APP_KEY
+# Secretos (nunca en este fichero): npx wrangler secret put APP_KEY  y  npx wrangler secret put XKIRO_KEY

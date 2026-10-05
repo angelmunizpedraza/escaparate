@@ -21,22 +21,23 @@ App web instalable (iOS y Android) para preparar fotos de Wallapop y Vinted. Dis
 
 La primera vez que uses «Estudio» se descargan unos 40 MB del modelo; queda guardado y después funciona sin conexión.
 
-## Rehacer con IA (gratis, en tu cuenta de Cloudflare)
-Modelo: FLUX.2 [klein] en Cloudflare Workers AI. Capa gratuita de 10.000 neuronas al día: unas 90 fotos en calidad rápida (klein 4B) o unas 7 en calidad alta (klein 9B). Sin tarjeta.
+## Rehacer con IA
+Motor principal: GPT Image 2.5 en xKiro (fiel a la prenda, sin tope en la app). Reserva automática: FLUX.2 [klein] en Cloudflare Workers AI cuando xKiro no tiene saldo, limita o falla.
 
-Montaje, una sola vez (10 minutos, desde el navegador):
-1. Crea cuenta gratis en dash.cloudflare.com.
-2. Workers y Pages → Crear → Worker → nómbralo `escaparate-ia` → Desplegar → Editar código → pega `worker/worker.js` → Desplegar.
-3. En el Worker → Configuración → Enlaces (Bindings) → Añadir → Workers AI → nombre `AI`.
-4. Configuración → Variables y secretos:
-   - `APP_KEY` (tipo Secreto): una clave larga inventada por ti.
+La clave de xKiro vive SOLO como secreto del Worker. Nunca en index.html, en worker.js ni en el repositorio: la web es pública y cualquiera la leería.
+
+Montaje (desde el navegador):
+1. dash.cloudflare.com → Workers y Pages → `escaparate-ia` → Editar código → pega `worker/worker.js` → Desplegar.
+2. Configuración → Enlaces (Bindings): Workers AI con nombre `AI` (reserva).
+3. Configuración → Variables y secretos:
+   - `XKIRO_KEY` (tipo Secreto): tu clave de xKiro.
+   - `APP_KEY` (tipo Secreto): la clave que pegas en la app.
    - `ALLOWED_ORIGINS` (texto): `https://angelmunizpedraza.github.io`
-5. Copia la dirección del Worker (https://escaparate-ia.TU-CUENTA.workers.dev).
-6. En la app: Rehacer con IA → Conectar → pega dirección y clave → Probar → Guardar.
+4. En la app: Rehacer con IA → Conectar → dirección del Worker y APP_KEY → Probar → Guardar.
 
-Con CLI, alternativa: `cd worker && npx wrangler deploy && npx wrangler secret put APP_KEY`.
+Con CLI: `cd worker && npx wrangler deploy && npx wrangler secret put XKIRO_KEY && npx wrangler secret put APP_KEY`.
 
-Los textos de las instrucciones al modelo están en `worker/worker.js` (buildPrompt). Se pueden afinar sin tocar la app.
+Los textos de las instrucciones al modelo están en `worker/worker.js` (buildPrompt).
 
 ## Modelo de recorte de fondo
 Recorte de fondo con @imgly/background-removal 1.7.0 (modelo ISNet cuantizado, gratuito, se ejecuta en el dispositivo con ONNX Runtime Web). Licencia AGPL-3.0: para uso propio no hay problema; si algún día la vendes como producto cerrado, hay que revisar la licencia o cambiar de modelo.

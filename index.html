@@ -644,7 +644,7 @@ dialog.hoja::backdrop { background: rgba(10, 18, 42, .6); }
 
 <footer class="pie">
   <span class="monograma peq" aria-hidden="true">AM</span>
-  <p>Diseñado y programado en Sevilla por <a href="https://github.com/angelmunizpedraza" target="_blank" rel="noopener">Ángel Muñiz</a>. El fondo de estudio usa el modelo abierto de recorte de IMG.LY en tu dispositivo, y «Rehacer con IA» usa FLUX.2 en tu propia cuenta de Cloudflare.</p>
+  <p>Diseñado y programado en Sevilla por <a href="https://github.com/angelmunizpedraza" target="_blank" rel="noopener">Ángel Muñiz</a>. El fondo de estudio usa el modelo abierto de recorte de IMG.LY en tu dispositivo, y «Rehacer con IA» usa GPT Image 2.5 a través de xKiro, con FLUX.2 de Cloudflare como reserva.</p>
 </footer>
 
 <div class="barra" id="barra" hidden>
@@ -1023,7 +1023,7 @@ async function cutout(it, src) {
   return crop;
 }
 
-/* ---------- Rehacer con IA (FLUX.2 en Cloudflare Workers AI, a través de tu Worker) ---------- */
+/* ---------- Rehacer con IA (GPT Image 2.5 en xKiro, con reserva FLUX.2 en Cloudflare, a través de tu Worker) ---------- */
 const IA_SIZE = { wallapop: [1024, 1024], vinted: [768, 1024] };
 const FREE_NEURONS = 10000;
 function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k) || 'null'); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { return null; } }
@@ -1047,28 +1047,31 @@ function renderIA() {
   $('#btnConectar').textContent = on ? 'Cambiar' : 'Conectar';
   const [w, h] = IA_SIZE[state.fmt];
   const left = Math.max(0, Math.floor((FREE_NEURONS - usageToday().neurons) / neuronCost(state.ia.quality, w, h)));
+  void left;
   $('#cupoIA').textContent = on
-    ? `Te quedan unas ${left} fotos gratis hoy en calidad ${state.ia.quality === 'alta' ? 'alta' : 'rápida'}. El cupo se renueva cada noche.`
+    ? 'Motor: GPT Image 2.5 con tu cuenta de xKiro, sin tope en la app. Si xKiro se queda sin saldo, entra solo la reserva gratuita de Cloudflare.'
     : 'Necesitas conectar tu Worker gratuito de Cloudflare una sola vez (las instrucciones vienen en el README).';
 }
 class IAError extends Error { constructor(code) { super(code); this.code = code; } }
 const IA_MSG = {
   'sin-ia': 'Conecta la IA para rehacer fotos.',
   red: 'No hay conexión con tu Worker. Revisa la dirección o tu cobertura.',
-  cupo: 'Se acabó el cupo gratis de hoy. Vuelve mañana o usa Retocar.',
+  cupo: 'xKiro sin saldo y Cloudflare sin cupo gratis hoy. Recarga xKiro o usa Retocar.',
+  bloqueada: 'La IA rechazó esta foto. Prueba con otra foto o cambia el escenario.',
+  'xkiro-clave': 'La clave de xKiro del Worker no es válida. Revisa el secreto XKIRO_KEY.',
   clave: 'La clave no coincide con la de tu Worker.',
   origen: 'Tu Worker no tiene autorizada esta web en ALLOWED_ORIGINS.',
   foto: 'El Worker no recibió la foto. Prueba otra vez.',
   modelo: 'La IA no pudo generar esta foto. Prueba Otra versión.',
 };
-const FATAL = ['sin-ia', 'cupo', 'clave', 'origen'];
+const FATAL = ['sin-ia', 'cupo', 'clave', 'origen', 'xkiro-clave'];
 function errText(e) { return (e && IA_MSG[e.code]) || 'No se pudo revelar. Prueba otra vez.'; }
 
 async function callWorker(fd) {
   const cfg = iaCfg();
   if (!cfg.url) throw new IAError('sin-ia');
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 120000);
+  const timer = setTimeout(() => ctrl.abort(), 200000); // GPT Image tarda de 20 s a 3 min
   let r;
   try {
     r = await fetch(cfg.url.replace(/\/+$/, '') + '/rehacer', { method: 'POST', headers: { 'X-Escaparate-Key': cfg.key || '' }, body: fd, signal: ctrl.signal });
@@ -1088,18 +1091,20 @@ function b64ToBlob(b64) {
 }
 async function developAI(it) {
   const [w, h] = IA_SIZE[state.fmt];
-  const small = fit(await decode(it.file), 512);
+  const small = fit(await decode(it.file), 1024); // más detalle de la prenda = más fidelidad
   const fd = new FormData();
   fd.append('photo', await toBlob(small, 'image/jpeg', 0.92), 'foto.jpg');
   for (const [k, v] of Object.entries(state.ia)) fd.append(k, v);
   fd.append('aspect', state.fmt);
   const data = await callWorker(fd);
   const blob = b64ToBlob(data.image);
-  addUsage(neuronCost(state.ia.quality, w, h));
+  if (data.motor === 'cloudflare') addUsage(neuronCost(state.ia.quality, w, h));
+  let rw = w, rh = h;
+  try { const bm = await createImageBitmap(blob); rw = bm.width; rh = bm.height; bm.close(); } catch (e) {}
   if (it.outUrl) URL.revokeObjectURL(it.outUrl);
   it.out = blob;
   it.outUrl = URL.createObjectURL(blob);
-  it.outInfo = `${w} × ${h} px, ${kb(blob.size)}, rehecha con IA`;
+  it.outInfo = `${rw} × ${rh} px, ${kb(blob.size)}, rehecha con ${data.motor === 'cloudflare' ? 'FLUX (reserva)' : 'GPT Image'}`;
   const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
   it.outName = `escaparate-ia-${state.fmt}-${String(it.n).padStart(2, '0')}-${Date.now().toString(36).slice(-4)}.${ext}`;
   it.status = 'lista';
