@@ -1,5 +1,5 @@
 /* Escaparate · service worker · Ángel Muñiz */
-const SHELL = 'escaparate-shell-v3';
+const SHELL = 'escaparate-shell-v4';
 const RUNTIME = 'escaparate-runtime-v1';
 const SHARE = 'escaparate-share';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];

@@ -576,7 +576,7 @@ dialog.hoja::backdrop { background: rgba(10, 18, 42, .6); }
         <fieldset class="campo">
           <legend>Cómo lo enseño</legend>
           <div class="seg seg3">
-            <label><input type="radio" name="show" value="producto" checked><span><b>Solo la prenda</b><small>Foto de tienda</small></span></label>
+            <label><input type="radio" name="show" value="producto" checked><span><b>Solo la prenda</b><small>Recorte real, sin inventos</small></span></label>
             <label><input type="radio" name="show" value="mujer"><span><b>En chica</b><small>Puesta en modelo</small></span></label>
             <label><input type="radio" name="show" value="hombre"><span><b>En chico</b><small>Puesta en modelo</small></span></label>
           </div>
@@ -612,8 +612,8 @@ dialog.hoja::backdrop { background: rgba(10, 18, 42, .6); }
         <fieldset class="campo">
           <legend>Calidad</legend>
           <div class="seg">
-            <label><input type="radio" name="quality" value="rapida" checked><span><b>Rápida</b><small>Unas 90 gratis al día</small></span></label>
-            <label><input type="radio" name="quality" value="alta"><span><b>Alta</b><small>Unas 7 gratis al día</small></span></label>
+            <label><input type="radio" name="quality" value="rapida" checked><span><b>Rápida</b><small>Solo para la reserva FLUX</small></span></label>
+            <label><input type="radio" name="quality" value="alta"><span><b>Alta</b><small>Solo para la reserva FLUX</small></span></label>
           </div>
         </fieldset>
 
@@ -1071,7 +1071,7 @@ async function callWorker(fd) {
   const cfg = iaCfg();
   if (!cfg.url) throw new IAError('sin-ia');
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 200000); // GPT Image tarda de 20 s a 3 min
+  const timer = setTimeout(() => ctrl.abort(), 300000); // generación + revisión de fidelidad + reintentos
   let r;
   try {
     r = await fetch(cfg.url.replace(/\/+$/, '') + '/rehacer', { method: 'POST', headers: { 'X-Escaparate-Key': cfg.key || '' }, body: fd, signal: ctrl.signal });
@@ -1089,9 +1089,16 @@ function b64ToBlob(b64) {
   const type = u[0] === 0x89 ? 'image/png' : u[0] === 0xFF ? 'image/jpeg' : 'image/webp';
   return new Blob([u], { type });
 }
-async function developAI(it) {
+async function developAI(it, noticeFallback) {
+  // «Solo la prenda»: sin IA generativa. Recorte real + fondo de estudio: los píxeles de la prenda son los tuyos, cero inventos.
+  if (state.ia.show === 'producto') {
+    if (!aiMod && !aiFail) await loadAI().catch(() => {});
+    await develop(it, noticeFallback || (() => {}), true);
+    it.outInfo += ', prenda real recortada (sin IA generativa)';
+    return;
+  }
   const [w, h] = IA_SIZE[state.fmt];
-  const small = fit(await decode(it.file), 1024); // más detalle de la prenda = más fidelidad
+  const small = fit(await decode(it.file), 1536); // más detalle de la prenda = menos que inventar
   const fd = new FormData();
   fd.append('photo', await toBlob(small, 'image/jpeg', 0.92), 'foto.jpg');
   for (const [k, v] of Object.entries(state.ia)) fd.append(k, v);
@@ -1104,7 +1111,9 @@ async function developAI(it) {
   if (it.outUrl) URL.revokeObjectURL(it.outUrl);
   it.out = blob;
   it.outUrl = URL.createObjectURL(blob);
-  it.outInfo = `${rw} × ${rh} px, ${kb(blob.size)}, rehecha con ${data.motor === 'cloudflare' ? 'FLUX (reserva)' : 'GPT Image'}`;
+  const nota = typeof data.fidelidad === 'number' ? data.fidelidad : null;
+  const fid = nota === null ? '' : nota >= 8 ? `, fidelidad ${nota}/10` : `, ⚠ fidelidad ${nota}/10: ${(data.diferencias || []).join('; ')}`;
+  it.outInfo = `${rw} × ${rh} px, ${kb(blob.size)}, rehecha con ${data.motor === 'cloudflare' ? 'FLUX (reserva, sin revisar)' : 'GPT Image'}${fid}`;
   const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
   it.outName = `escaparate-ia-${state.fmt}-${String(it.n).padStart(2, '0')}-${Date.now().toString(36).slice(-4)}.${ext}`;
   it.status = 'lista';
@@ -1112,8 +1121,8 @@ async function developAI(it) {
 }
 
 /* ---------- revelado ---------- */
-async function develop(it, noticeFallback) {
-  if (state.modo === 'ia') return developAI(it);
+async function develop(it, noticeFallback, forceStudio) {
+  if (state.modo === 'ia' && !forceStudio) return developAI(it, noticeFallback);
   const F = FORMATS[state.fmt];
   const W = F.w, H = F.h;
   const J = jitter(state.fresh);
@@ -1121,7 +1130,7 @@ async function develop(it, noticeFallback) {
   const out = makeCanvas(W, H);
   const x = ctx2d(out);
   x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
-  let mode = state.bg;
+  let mode = forceStudio ? 'studio' : state.bg;
   const img = await decode(it.file);
   let src = fit(img, mode === 'studio' ? 1600 : 2048);
   if (mode === 'studio') {

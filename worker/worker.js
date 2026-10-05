@@ -19,7 +19,12 @@ const MODELS = {
 const SIZES = { wallapop: [1024, 1024], vinted: [768, 1024] };
 const XKIRO = 'https://api.xkiro.com/v1';
 const XKIRO_MODEL = 'openai/gpt-image-2.5'; // el único de xKiro que acepta foto de origen
-const XKIRO_WAIT_MS = 170000;
+const XKIRO_WAIT_MS = 150000;      // espera máxima por foto generada
+const PRESUPUESTO_MS = 270000;     // tiempo total por petición (la app espera 300 s)
+// Revisores con visión, en orden: Gemini 3.8 Flash (el mejor comparando detalle; tira del presupuesto del plan Max, no del monedero)
+// y Mistral Medium 3.5 (gratis) si el primero falla. Cambiable con la variable REVISOR_MODEL.
+const REVISORES = ['google/gemini-3.8-flash', 'mistralai/mistral-medium-3.5'];
+const NOTA_MINIMA = 8;             // fidelidad mínima (0-10) para dar la foto por buena
 const ALLOWED = {
   cat: ['top', 'bottom', 'dress', 'shoes', 'bag', 'acc'],
   show: ['producto', 'mujer', 'hombre'],
@@ -103,6 +108,70 @@ function buildPrompt(o, ref) {
   ].join(' ');
 }
 
+// Prompt de edición para GPT Image: primero lo que NO puede cambiar, luego el único cambio.
+function editPrompt(o, fixes) {
+  const keep =
+    `Use the ${ITEM[o.cat]} in the provided photo as an exact reference and reproduce it with zero changes: ` +
+    'same color and shade, same fabric and texture, same cut, length and proportions, same seams, piping, stitching, ' +
+    'pockets, zips, buttons, buckles and hardware in the same positions, same logos and labels, same wear. ' +
+    'Do not add, remove, simplify or beautify any detail. If a detail is not visible in the photo, keep that area plain and simple instead of inventing it.';
+  let change;
+  if (o.show === 'producto') {
+    change = `Only change the presentation: ${PRODUCT_POSE[o.cat]}, ${PRODUCT_SCENE[o.scene]}.`;
+  } else {
+    const framing = o.framing === 'entero' ? 'full-body shot from head to toe' : NO_FACE[o.cat];
+    change = `Only change the presentation: ${PERSON[o.show]} with a ${BODY[o.body]} is ${WEAR[o.cat].replace(' from image 0', '')}, ` +
+      `natural relaxed pose, ${framing}, ${MODEL_SCENE[o.scene]}. The rest of the outfit is plain and neutral.`;
+  }
+  const fix = fixes && fixes.length ? ` A previous attempt got these wrong, fix them: ${fixes.join('; ')}.` : '';
+  return `${keep} ${change}${fix} ${FINISH}`;
+}
+
+// Revisor con visión: compara la prenda original con la generada y puntúa de 0 a 10.
+async function revisar(env, origB64, outUrl, o) {
+  const modelos = env.REVISOR_MODEL ? [env.REVISOR_MODEL] : REVISORES;
+  for (const model of modelos) {
+    const v = await revisarCon(env, model, origB64, outUrl, o).catch(() => null);
+    if (v) return v;
+  }
+  return null;
+}
+async function revisarCon(env, model, origB64, outUrl, o) {
+  const body = {
+    model,
+    temperature: 0,
+    max_tokens: 300,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'text', text:
+          `Image 1 is the real ${ITEM[o.cat]} being sold. Image 2 is an AI photo that must show exactly the same item. ` +
+          'Compare ONLY the item itself (ignore person, pose, background, lighting). Check color and shade, shape and length, ' +
+          'seams and piping, pockets, closures, buckles, hardware, logos, prints and any detail added or removed. ' +
+          'Reply with JSON only: {"score": <0-10, 10 = identical item>, "diffs": ["descripción breve en español de cada diferencia"]}' },
+        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${origB64}` } },
+        { type: 'image_url', image_url: { url: outUrl } }, // URL del CDN: no reenviamos megas en base64
+      ],
+    }],
+  };
+  const r = await fetch(`${XKIRO}/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.XKIRO_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) return null;
+  const j = await r.json().catch(() => null);
+  const txt = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+  const m = typeof txt === 'string' && txt.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try {
+    const v = JSON.parse(m[0]);
+    const score = Math.max(0, Math.min(10, Number(v.score)));
+    if (!Number.isFinite(score)) return null;
+    return { score, diffs: Array.isArray(v.diffs) ? v.diffs.map(String).slice(0, 4) : [] };
+  } catch (e) { return null; }
+}
+
 function b64(buf) {
   const u = new Uint8Array(buf);
   let s = '';
@@ -112,12 +181,12 @@ function b64(buf) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 class Fallo extends Error { constructor(code, detail) { super(code); this.code = code; this.detail = detail; } }
 
-async function xkiro(env, photo, o, w, hgt) {
+async function xkiro(env, photo, o, w, hgt, fixes) {
   const auth = { Authorization: `Bearer ${env.XKIRO_KEY}` };
   const form = new FormData();
   form.append('image', photo, 'item.jpg');
   form.append('model', XKIRO_MODEL);
-  form.append('prompt', buildPrompt(o, 'the provided photo'));
+  form.append('prompt', editPrompt(o, fixes));
   form.append('size', `${w}x${hgt}`);
   form.append('n', '1');
   const r = await fetch(`${XKIRO}/images/edits`, { method: 'POST', headers: auth, body: form });
@@ -139,7 +208,7 @@ async function xkiro(env, photo, o, w, hgt) {
     if (j.status === 'succeeded' && j.data && j.data[0] && j.data[0].url) {
       const img = await fetch(j.data[0].url);
       if (!img.ok) throw new Fallo('modelo', `CDN ${img.status}`);
-      return b64(await img.arrayBuffer());
+      return { b64: b64(await img.arrayBuffer()), url: j.data[0].url };
     }
     if (j.status === 'blocked') throw new Fallo('bloqueada', 'blocked');
     if (j.status === 'failed') throw new Fallo('modelo', (j.error && j.error.message) || 'failed');
@@ -213,12 +282,26 @@ export default {
     const status = { cupo: 429, bloqueada: 400, 'xkiro-clave': 502, modelo: 502 };
     let primero = null;
     if (env.XKIRO_KEY) {
-      try {
-        return json({ image: await xkiro(env, photo, o, w, hgt), width: w, height: hgt, motor: 'xkiro' }, 200, h);
-      } catch (e) {
-        primero = e;
-        // una foto bloqueada por contenido no se reintenta en otro motor: el problema es la foto o el prompt
-        if (e.code === 'bloqueada' || !env.AI) return json({ error: e.code, detail: String(e.detail || '').slice(0, 300) }, status[e.code] || 502, h);
+      const t0 = Date.now();
+      const intentos = Math.max(1, Math.min(4, Number(env.MAX_INTENTOS) || 3));
+      const origB64 = b64(await photo.arrayBuffer());
+      let mejor = null, fixes = [];
+      for (let i = 0; i < intentos; i++) {
+        if (i > 0 && Date.now() - t0 > PRESUPUESTO_MS - XKIRO_WAIT_MS) break; // no da tiempo a otro intento
+        let img;
+        try { img = await xkiro(env, photo, o, w, hgt, fixes); }
+        catch (e) { if (!mejor) primero = e; break; }
+        const rev = await revisar(env, origB64, img.url, o).catch(() => null);
+        const cand = { image: img.b64, nota: rev ? rev.score : null, diffs: rev ? rev.diffs : [], intento: i + 1 };
+        if (!mejor || (cand.nota ?? -1) > (mejor.nota ?? -1)) mejor = cand;
+        if (!rev || rev.score >= NOTA_MINIMA) break; // sin revisor no se reintenta a ciegas
+        fixes = rev.diffs;
+      }
+      if (mejor) {
+        return json({ image: mejor.image, width: w, height: hgt, motor: 'xkiro', fidelidad: mejor.nota, diferencias: mejor.diffs, intentos: mejor.intento }, 200, h);
+      }
+      if (primero && (primero.code === 'bloqueada' || !env.AI)) {
+        return json({ error: primero.code, detail: String(primero.detail || '').slice(0, 300) }, status[primero.code] || 502, h);
       }
     }
     try {
