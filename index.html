@@ -105,6 +105,57 @@ button, input { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 [hidden] { display: none !important; }
 
+
+/* ---------- Ficha del anuncio: la cartela de azulejo donde se compone el anuncio ---------- */
+.ficha {
+  --tinta: #1C3D8F; --texto: #3B2231; --suave: #6F5E68; --loza: #FFFDF8;
+  position: relative;
+  margin: 22px 0 0;
+  padding: 20px 18px 18px;
+  background: var(--loza);
+  color: var(--texto);
+  border: 3px solid var(--tinta);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 5px var(--loza), inset 0 0 0 7px #E9B03B;
+}
+.ficha-cab { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+.ficha-cab h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 24px; line-height: 1.1; color: var(--tinta); }
+.ficha .link { color: var(--tinta); }
+.precio { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 4px 0 14px; border-bottom: 1px solid rgba(28, 61, 143, .18); }
+.precio b { font-family: var(--serif); font-weight: 400; font-size: 52px; line-height: .95; color: var(--tinta); letter-spacing: -.02em; }
+.precio span { font-size: 14px; color: var(--suave); max-width: 22ch; line-height: 1.35; }
+.f-campo { display: grid; gap: 6px; margin-top: 14px; }
+.f-fila { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.f-fila label { font-weight: 700; font-size: 14.5px; }
+.f-fila small { font-size: 12.5px; color: var(--suave); }
+.ficha textarea {
+  width: 100%; resize: vertical; font: inherit; font-size: 15.5px; line-height: 1.5; color: var(--texto);
+  background: #FFFFFF; border: 1.5px solid rgba(59, 34, 49, .2); border-radius: 6px; padding: 10px 12px;
+}
+.ficha textarea:focus-visible { outline: 3px solid #E9B03B; outline-offset: 1px; border-color: var(--tinta); }
+.ficha textarea.tit { font-weight: 600; min-height: 0; }
+.f-copiar { justify-self: start; appearance: none; border: 0; background: none; color: var(--tinta); font: inherit; font-weight: 700; font-size: 14px; padding: 4px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.datos { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px 14px; margin: 14px 0 0; }
+.datos div { min-width: 0; }
+.datos dt { font-size: 12.5px; color: var(--suave); }
+.datos dd { margin: 0; font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+.datos dd.falta { color: #A8321F; font-weight: 600; }
+.f-lista { margin: 14px 0 0; padding: 12px 14px; border-radius: 6px; font-size: 14px; }
+.f-lista p { margin: 0 0 4px; font-weight: 700; }
+.f-lista ul { margin: 0; padding-left: 18px; }
+.f-lista.defectos { background: #FBEDE9; color: #6E2213; }
+.f-lista.faltan { background: #EEF2FB; color: #1C3D8F; }
+.ficha-cargando { display: grid; gap: 10px; }
+.ficha-cargando i { display: block; height: 14px; border-radius: 4px; background: linear-gradient(90deg, #EEF0F6, #DDE3F1, #EEF0F6); background-size: 200% 100%; animation: brillo 1.4s linear infinite; }
+.ficha-cargando i:nth-child(1) { height: 44px; width: 40%; }
+.ficha-cargando i:nth-child(3) { width: 80%; }
+@keyframes brillo { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .ficha-cargando i { animation: none; } }
+.tile .sello {
+  position: absolute; top: 8px; left: 8px; z-index: 1;
+  background: #E9B03B; color: #21170A; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 3px;
+}
+
 /* ---------- Rótulo (cabecera) ---------- */
 .top {
   display: flex;
@@ -491,14 +542,14 @@ dialog.hoja::backdrop { background: rgba(10, 18, 42, .6); }
 <main class="taller">
   <section class="col-izq">
     <div class="intro">
-      <h1>Fotos listas para Wallapop y Vinted</h1>
-      <p>Arregla la luz y el color, encuadra cada foto al formato de la app y crea un archivo nuevo en cada subida. Todo ocurre en tu móvil: tus fotos no se suben a ningún servidor.</p>
+      <h1>De la percha al anuncio en un par de minutos</h1>
+      <p>Sube las fotos de una prenda. Escaparate le pone portada en modelo, deja tus fotos reales con fondo de estudio y te escribe el título, la descripción y el precio.</p>
     </div>
 
     <div class="zona" id="zona">
       <div class="cartela">
-        <p class="cartela-t">Suelta aquí tus fotos</p>
-        <p class="cartela-s">Todas las que quieras, de una vez</p>
+        <p class="cartela-t">Las fotos de una prenda</p>
+        <p class="cartela-s">De 1 a 6, de frente, de espalda y algún detalle</p>
         <div class="cartela-btns">
           <button type="button" class="btn btn-prim" id="btnGaleria">Elegir de la galería</button>
           <button type="button" class="btn btn-sec" id="btnCamara">Hacer una foto</button>
@@ -513,21 +564,42 @@ dialog.hoja::backdrop { background: rgba(10, 18, 42, .6); }
 
       <fieldset class="campo">
         <legend>Qué hago con ellas</legend>
-        <div class="seg">
-          <label><input type="radio" name="modo" value="retoque" checked><span><b>Retocar</b><small>Tu foto mejorada, en el móvil, sin límite</small></span></label>
-          <label><input type="radio" name="modo" value="ia"><span><b>Rehacer con IA</b><small>Foto nueva de estudio o puesta en modelo</small></span></label>
+        <div class="seg seg3">
+          <label><input type="radio" name="modo" value="kit" checked><span><b>Anuncio completo</b><small>Portada, fotos y texto</small></span></label>
+          <label><input type="radio" name="modo" value="ia"><span><b>Rehacer con IA</b><small>Una foto nueva por foto</small></span></label>
+          <label><input type="radio" name="modo" value="retoque"><span><b>Retocar</b><small>En el móvil, sin conexión</small></span></label>
         </div>
       </fieldset>
 
       <fieldset class="campo">
         <legend>Formato</legend>
         <div class="seg">
-          <label><input type="radio" name="fmt" value="wallapop" checked><span><b>Wallapop</b><small>Cuadrada 1:1</small></span></label>
-          <label><input type="radio" name="fmt" value="vinted"><span><b>Vinted</b><small>Vertical 3:4</small></span></label>
+          <label><input type="radio" name="fmt" value="wallapop"><span><b>Wallapop</b><small>Cuadrada 1:1</small></span></label>
+          <label><input type="radio" name="fmt" value="vinted" checked><span><b>Vinted</b><small>Vertical 3:4</small></span></label>
         </div>
       </fieldset>
 
-      <div class="grupo" id="panelRetoque">
+      <div class="grupo" id="panelKit">
+        <fieldset class="campo">
+          <legend>Portada</legend>
+          <div class="seg seg3">
+            <label><input type="radio" name="kmodelo" value="mujer" checked><span><b>En chica</b><small>Sin cara</small></span></label>
+            <label><input type="radio" name="kmodelo" value="hombre"><span><b>En chico</b><small>Sin cara</small></span></label>
+            <label><input type="radio" name="kmodelo" value="ninguno"><span><b>Sin modelo</b><small>Solo tus fotos</small></span></label>
+          </div>
+        </fieldset>
+        <fieldset class="campo" id="kEscena">
+          <legend>Dónde se hace la portada</legend>
+          <div class="seg seg3">
+            <label><input type="radio" name="kscene" value="estudio"><span><b>Estudio</b><small>Fondo liso</small></span></label>
+            <label><input type="radio" name="kscene" value="casa" checked><span><b>Casa</b><small>Luz de ventana</small></span></label>
+            <label><input type="radio" name="kscene" value="exterior"><span><b>Exterior</b><small>Calle con sol</small></span></label>
+          </div>
+        </fieldset>
+        <p class="nota aviso">La portada sale de tu primera foto: pon delante la que enseña la prenda entera, estirada y con buena luz. El resto de fotos se quedan como son, solo con fondo de estudio, así que nadie podrá decir que no es como en las fotos.</p>
+      </div>
+
+      <div class="grupo" id="panelRetoque" hidden>
       <fieldset class="campo">
         <legend>Fondo</legend>
         <div class="seg seg3">
@@ -617,12 +689,15 @@ dialog.hoja::backdrop { background: rgba(10, 18, 42, .6); }
           </div>
         </fieldset>
 
+        <p class="nota aviso">La IA puede cambiar detalles de la prenda. Revisa cada foto antes de subirla y pon siempre al menos una foto real del artículo en el anuncio: es lo que te evita reclamaciones por «no es como en las fotos».</p>
+      </div>
+
+      <div class="grupo" id="iaBloque">
         <div class="ia-estado" id="iaConexion">
           <p id="iaConexionTxt"><span class="punto" aria-hidden="true"></span>IA sin conectar</p>
           <button type="button" class="link" id="btnConectar">Conectar</button>
         </div>
         <p class="nota" id="cupoIA"></p>
-        <p class="nota aviso">La IA puede cambiar detalles de la prenda. Revisa cada foto antes de subirla y pon siempre al menos una foto real del artículo en el anuncio: es lo que te evita reclamaciones por «no es como en las fotos».</p>
       </div>
 
       <details class="porque">
@@ -637,8 +712,9 @@ dialog.hoja::backdrop { background: rgba(10, 18, 42, .6); }
       <h2 id="t-muro">Tus fotos</h2>
       <button type="button" class="link" id="btnVaciar" hidden>Quitar todas</button>
     </div>
-    <p class="vacio" id="vacio">Todavía no hay fotos. Añade unas cuantas y pulsa Revelar.</p>
+    <p class="vacio" id="vacio">Aquí aparecerán tus fotos y el anuncio. Empieza por la foto de la prenda entera.</p>
     <ul class="muro" id="muro" hidden></ul>
+    <section class="ficha" id="ficha" aria-labelledby="t-ficha" hidden></section>
   </section>
 </main>
 
@@ -704,8 +780,10 @@ const STUDIO = {
 
 const $ = (s) => document.querySelector(s);
 const state = {
-  items: [], fmt: 'wallapop', bg: 'blur', color: 'blanco', k: 0.6, fresh: true, busy: false, dirty: false, open: null,
-  modo: 'retoque',
+  items: [], fmt: 'vinted', bg: 'blur', color: 'blanco', k: 0.6, fresh: true, busy: false, dirty: false, open: null,
+  modo: 'kit',
+  kit: { modelo: 'mujer', scene: 'casa' },
+  anuncio: null, prog: '',
   ia: { cat: 'top', show: 'producto', body: 'normal', framing: 'sincara', scene: 'casa', quality: 'rapida' },
 };
 let seq = 0;
@@ -1089,9 +1167,9 @@ function b64ToBlob(b64) {
   const type = u[0] === 0x89 ? 'image/png' : u[0] === 0xFF ? 'image/jpeg' : 'image/webp';
   return new Blob([u], { type });
 }
-async function developAI(it, noticeFallback) {
+async function developAI(it, noticeFallback, opts = state.ia) {
   // «Solo la prenda»: sin IA generativa. Recorte real + fondo de estudio: los píxeles de la prenda son los tuyos, cero inventos.
-  if (state.ia.show === 'producto') {
+  if (opts.show === 'producto') {
     if (!aiMod && !aiFail) await loadAI().catch(() => {});
     await develop(it, noticeFallback || (() => {}), true);
     it.outInfo += ', prenda real recortada (sin IA generativa)';
@@ -1101,11 +1179,11 @@ async function developAI(it, noticeFallback) {
   const small = fit(await decode(it.file), 1536); // más detalle de la prenda = menos que inventar
   const fd = new FormData();
   fd.append('photo', await toBlob(small, 'image/jpeg', 0.92), 'foto.jpg');
-  for (const [k, v] of Object.entries(state.ia)) fd.append(k, v);
+  for (const [k, v] of Object.entries(opts)) fd.append(k, v);
   fd.append('aspect', state.fmt);
   const data = await callWorker(fd);
   const blob = b64ToBlob(data.image);
-  if (data.motor === 'cloudflare') addUsage(neuronCost(state.ia.quality, w, h));
+  if (data.motor === 'cloudflare') addUsage(neuronCost(opts.quality, w, h));
   let rw = w, rh = h;
   try { const bm = await createImageBitmap(blob); rw = bm.width; rh = bm.height; bm.close(); } catch (e) {}
   if (it.outUrl) URL.revokeObjectURL(it.outUrl);
@@ -1122,6 +1200,8 @@ async function developAI(it, noticeFallback) {
 
 /* ---------- revelado ---------- */
 async function develop(it, noticeFallback, forceStudio) {
+  if (it.kind === 'portada') return developAI(it, noticeFallback, it.opts);
+  if (state.modo === 'kit') forceStudio = true; // en el anuncio, tus fotos reales: recorte + estudio, sin IA generativa
   if (state.modo === 'ia' && !forceStudio) return developAI(it, noticeFallback);
   const F = FORMATS[state.fmt];
   const W = F.w, H = F.h;
@@ -1175,6 +1255,7 @@ function fallbackNotice() {
 
 async function revealAll() {
   if (state.busy) return;
+  if (state.modo === 'kit') return revealKit();
   const list = state.items.filter((i) => !i.bad);
   if (!list.length) return;
   if (state.modo === 'ia' && !iaReady()) { openConectar(); return; }
@@ -1205,7 +1286,7 @@ async function revealAll() {
 
 async function revealOne(it) {
   if (state.busy) return;
-  if (state.modo === 'ia' && !iaReady()) { closeViewer(); openConectar(); return; }
+  if ((state.modo !== 'retoque' || it.kind === 'portada') && !iaReady() && !(state.modo === 'kit' && it.kind !== 'portada')) { closeViewer(); openConectar(); return; }
   state.busy = true; renderBar();
   it.status = 'rev'; renderTile(it);
   const btn = $('#visorOtra'); btn.disabled = true; btn.textContent = 'Revelando…';
@@ -1217,6 +1298,116 @@ async function revealOne(it) {
   renderTile(it); renderBar();
   if (state.open === it) fillViewer(it);
 }
+
+
+/* ---------- Anuncio completo ---------- */
+const CATS = ['top', 'bottom', 'dress', 'shoes', 'bag', 'acc'];
+function progreso(t) { state.prog = t; renderBar(); }
+async function callAnuncio(items) {
+  const cfg = iaCfg();
+  const fd = new FormData();
+  for (const it of items.slice(0, 4)) fd.append('photo', await toBlob(fit(await decode(it.file), 1024), 'image/jpeg', 0.88), 'foto.jpg');
+  fd.append('aspect', state.fmt);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 120000);
+  try {
+    const r = await fetch(cfg.url.replace(/\/+$/, '') + '/anuncio', { method: 'POST', headers: { 'X-Escaparate-Key': cfg.key || '' }, body: fd, signal: ctrl.signal });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.anuncio) throw new IAError(IA_MSG[d.error] ? d.error : 'modelo');
+    return d.anuncio;
+  } catch (e) { if (e instanceof IAError) throw e; throw new IAError('red'); }
+  finally { clearTimeout(timer); }
+}
+async function revealKit() {
+  const fotos = state.items.filter((i) => !i.bad && i.kind !== 'portada');
+  if (!fotos.length) return;
+  if (!iaReady()) { openConectar(); return; }
+  state.items.filter((i) => i.kind === 'portada').forEach((i) => removeItem(i));
+  state.busy = true; state.dirty = false;
+  const notice = fallbackNotice();
+  const ficha = $('#ficha');
+  ficha.hidden = false;
+  ficha.innerHTML = '<div class="ficha-cab"><h2 id="t-ficha">Tu anuncio</h2></div><div class="ficha-cargando" aria-label="Escribiendo el anuncio"><i></i><i></i><i></i><i></i></div>';
+  ficha.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+
+  progreso('Leyendo la prenda…');
+  let a = null;
+  try { a = await callAnuncio(fotos); state.anuncio = a; renderFicha(); }
+  catch (e) {
+    console.error(e);
+    if (e && FATAL.includes(e.code)) { state.busy = false; progreso(''); ficha.hidden = true; toast(errText(e), 5200); return; }
+    ficha.innerHTML = '<div class="ficha-cab"><h2 id="t-ficha">Tu anuncio</h2></div><p class="nota">No se pudo escribir el anuncio esta vez. Las fotos siguen; vuelve a pulsar Crear anuncio para reintentarlo.</p>';
+  }
+
+  let ok = 0;
+  for (let i = 0; i < fotos.length; i++) {
+    const it = fotos[i];
+    progreso(`Recortando tus fotos, ${i + 1} de ${fotos.length}…`);
+    it.status = 'rev'; renderTile(it); await nextFrame();
+    try { await develop(it, notice, true); ok++; } catch (e) { console.error(e); it.status = 'err'; it.err = errText(e); }
+    renderTile(it);
+  }
+
+  const modelo = state.kit.modelo;
+  const cat = a ? a.cat : state.ia.cat;
+  if (modelo !== 'ninguno' && CATS.includes(cat)) {
+    const base = fotos[0];
+    const port = { id: 'f' + ++seq, n: 0, kind: 'portada', file: base.file, status: 'rev', prev: base.prev ? URL.createObjectURL(await toBlob(fit(await decode(base.file), 900), 'image/jpeg', 0.85)) : null,
+      opts: { ...state.ia, cat, show: modelo, scene: state.kit.scene, body: 'normal', framing: 'sincara' } };
+    state.items.unshift(port); renderAll();
+    progreso('Creando la portada en modelo (1 a 3 minutos)…');
+    try { await developAI(port, notice, port.opts); ok++; }
+    catch (e) { console.error(e); port.status = 'err'; port.err = errText(e); }
+    renderTile(port);
+  } else if (modelo !== 'ninguno' && a && cat === 'otro') {
+    toast('No es una prenda ni un complemento, así que no hago portada en modelo. Tus fotos ya están listas.', 4800);
+  }
+  state.busy = false; progreso('');
+  toast(ok ? 'Anuncio listo: revisa el texto y guarda las fotos' : 'No se pudo preparar el anuncio. Prueba otra vez.');
+}
+
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function renderFicha() {
+  const a = state.anuncio, f = $('#ficha');
+  if (!a) { f.hidden = true; f.innerHTML = ''; return; }
+  const p = a.precio || {};
+  const rango = p.min && p.max && p.min !== p.max ? `Se vende entre ${p.min} y ${p.max} € en ${state.fmt === 'vinted' ? 'Vinted' : 'Wallapop'}. Empieza por aquí y baja si en una semana no hay ofertas.` : 'Precio orientativo para segunda mano.';
+  const dato = (k, v, falta) => `<div><dt>${k}</dt><dd${v ? '' : ' class="falta"'}>${esc(v || falta)}</dd></div>`;
+  const lista = (cls, t, xs) => (xs && xs.length ? `<div class="f-lista ${cls}"><p>${t}</p><ul>${xs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
+  const max = state.fmt === 'vinted' ? 60 : 50;
+  f.innerHTML = `
+    <div class="ficha-cab"><h2 id="t-ficha">Tu anuncio</h2><button type="button" class="link" data-copiar="todo">Copiar todo</button></div>
+    ${p.recomendado ? `<div class="precio"><b>${p.recomendado} €</b><span>${esc(rango)}</span></div>` : ''}
+    <div class="f-campo">
+      <div class="f-fila"><label for="fTit">Título</label><small id="fTitN"></small></div>
+      <textarea id="fTit" class="tit" rows="2" maxlength="${max}">${esc(String(a.titulo).slice(0, max))}</textarea>
+      <button type="button" class="f-copiar" data-copiar="fTit">Copiar título</button>
+    </div>
+    <div class="f-campo">
+      <div class="f-fila"><label for="fDesc">Descripción</label><small>Rellena lo que pone __</small></div>
+      <textarea id="fDesc" rows="3">${esc(a.descripcion)}</textarea>
+      <button type="button" class="f-copiar" data-copiar="fDesc">Copiar descripción</button>
+    </div>
+    <dl class="datos">
+      ${dato('Estado', a.estado)}${dato('Marca', a.marca, 'No se ve: ponla tú')}${dato('Talla', a.talla, 'Mira la etiqueta')}${dato('Color', a.color)}${a.material ? dato('Material', a.material) : ''}
+    </dl>
+    ${lista('defectos', 'Se ve en las fotos, y está bien que lo digas:', a.defectos_visibles)}
+    ${lista('faltan', 'Para vender antes, añade una foto de:', a.fotos_que_faltan)}`;
+  const n = () => { $('#fTitN').textContent = `${$('#fTit').value.length} de ${max}`; };
+  $('#fTit').addEventListener('input', n); n();
+  const crece = (t) => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 4 + 'px'; };
+  ['#fTit', '#fDesc'].forEach((q) => { const t = $(q); crece(t); t.addEventListener('input', () => crece(t)); });
+}
+async function copiar(txt, ok) {
+  try { await navigator.clipboard.writeText(txt); toast(ok); }
+  catch (e) { toast('No se pudo copiar. Mantén pulsado el texto y elige Copiar.', 4200); }
+}
+$('#ficha').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-copiar]'); if (!b) return;
+  const k = b.dataset.copiar;
+  if (k === 'todo') copiar(`${$('#fTit').value}\n\n${$('#fDesc').value}`, 'Título y descripción copiados');
+  else copiar($('#' + k).value, k === 'fTit' ? 'Título copiado' : 'Descripción copiada');
+});
 
 /* ---------- entrada de fotos ---------- */
 async function addFiles(files) {
@@ -1251,7 +1442,7 @@ function removeItem(it) {
 async function save(items) {
   const ready = items.filter((i) => i.out);
   if (!ready.length) { toast('Primero pulsa Revelar.'); return; }
-  const files = ready.map((i) => new File([i.out], i.outName, { type: 'image/jpeg' }));
+  const files = ready.map((i) => new File([i.out], i.outName, { type: i.out.type || 'image/jpeg' }));
   try {
     if (navigator.canShare && navigator.canShare({ files })) {
       await navigator.share({ files });
@@ -1274,7 +1465,8 @@ async function save(items) {
 function tileHTML(it) {
   const label = it.status === 'lista' ? 'Revelada' : it.status === 'rev' ? 'Revelando…' : it.status === 'err' ? it.err : 'Sin revelar';
   const src = it.status === 'lista' ? it.outUrl : it.prev;
-  return `<button class="tile-btn" type="button" aria-label="Abrir foto ${it.n}. ${label}">${src ? `<img src="${src}" alt="">` : ''}<span class="estado">${label}</span></button>`;
+  const nombre = it.kind === 'portada' ? 'la portada' : `foto ${it.n}`;
+  return `<button class="tile-btn" type="button" aria-label="Abrir ${nombre}. ${label}">${it.kind === 'portada' ? '<span class="sello">Portada</span>' : ''}${src ? `<img src="${src}" alt="">` : ''}<span class="estado">${label}</span></button>`;
 }
 function renderTile(it) {
   const li = document.querySelector(`[data-id="${it.id}"]`);
@@ -1302,7 +1494,8 @@ function renderBar() {
   $('#barra').hidden = usable === 0;
   const r = $('#btnRevelar'), g = $('#btnGuardarTodas');
   r.disabled = state.busy;
-  if (state.busy) r.textContent = 'Revelando…';
+  if (state.busy) r.textContent = state.prog || 'Revelando…';
+  else if (state.modo === 'kit') r.textContent = done && !state.dirty ? 'Crear de nuevo' : 'Crear anuncio';
   else if (done && !state.dirty) r.textContent = 'Revelar de nuevo';
   else r.textContent = usable === 1 ? 'Revelar 1 foto' : `Revelar ${usable} fotos`;
   r.classList.toggle('btn-prim', !done || state.dirty || state.busy);
@@ -1315,7 +1508,7 @@ function renderBar() {
 }
 
 function fillViewer(it) {
-  $('#visorTit').textContent = `Foto ${it.n}`;
+  $('#visorTit').textContent = it.kind === 'portada' ? 'Portada' : `Foto ${it.n}`;
   const img = $('#visorImg');
   img.src = it.out ? it.outUrl : it.prev || '';
   img.alt = `Foto ${it.n}`;
@@ -1372,6 +1565,8 @@ document.querySelectorAll('input[name="modo"]').forEach((r) => r.addEventListene
   state.modo = r.value;
   $('#panelRetoque').hidden = state.modo !== 'retoque';
   $('#panelIA').hidden = state.modo !== 'ia';
+  $('#panelKit').hidden = state.modo !== 'kit';
+  $('#iaBloque').hidden = state.modo === 'retoque';
   markDirty(); renderIA();
 }));
 for (const k of ['cat', 'show', 'body', 'framing', 'scene', 'quality']) {
@@ -1382,6 +1577,8 @@ for (const k of ['cat', 'show', 'body', 'framing', 'scene', 'quality']) {
   }));
 }
 document.querySelectorAll('input[name="fmt"]').forEach((r) => r.addEventListener('change', renderIA));
+document.querySelectorAll('input[name="kmodelo"]').forEach((r) => r.addEventListener('change', () => { state.kit.modelo = r.value; $('#kEscena').hidden = r.value === 'ninguno'; markDirty(); }));
+document.querySelectorAll('input[name="kscene"]').forEach((r) => r.addEventListener('change', () => { state.kit.scene = r.value; markDirty(); }));
 
 function openConectar() {
   const c = iaCfg();
@@ -1420,7 +1617,7 @@ $('#btnGuardarTodas').addEventListener('click', () => save(state.items));
 $('#btnVaciar').addEventListener('click', () => {
   if (state.busy) return;
   state.items.forEach((it) => [it.prev, it.outUrl].forEach((u) => u && URL.revokeObjectURL(u)));
-  state.items = []; renderAll();
+  state.items = []; state.anuncio = null; renderFicha(); renderAll();
 });
 $('#muro').addEventListener('click', (e) => {
   const li = e.target.closest('.tile'); if (!li) return;

@@ -3,6 +3,7 @@
 App web instalable (iOS y Android) para preparar fotos de Wallapop y Vinted. Diseñada y programada por Ángel Muñiz.
 
 ## Qué hace
+- **Anuncio completo** (modo principal): con las fotos de una prenda crea la portada puesta en modelo (GPT Image 2.5 con revisor de fidelidad), deja tus fotos reales recortadas con fondo de estudio y escribe título, descripción, estado y precio recomendado para Vinted o Wallapop, con avisos de defectos visibles y de las fotos que faltan.
 - Mejora luz, color y nitidez de forma automática (intensidad ajustable).
 - Encuadra a 1:1 (Wallapop) o 3:4 vertical (Vinted), a 1600 px.
 - Tres fondos: Original, Difuminado (foto entera sin recortar) y Estudio (quita el fondo con IA y pone un fondo de estudio con sombra).

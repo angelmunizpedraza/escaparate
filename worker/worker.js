@@ -243,6 +243,91 @@ async function flux(env, photo, o, w, hgt) {
   }
 }
 
+/* ---------- Anuncio: lee las fotos y redacta la ficha para Vinted o Wallapop ---------- */
+const ESTADOS = {
+  vinted: ['Nuevo con etiquetas', 'Nuevo sin etiquetas', 'Muy bueno', 'Bueno', 'Satisfactorio'],
+  wallapop: ['Nuevo', 'Como nuevo', 'En buen estado', 'En condiciones aceptables'],
+};
+function anuncioPrompt(plat) {
+  const app = plat === 'vinted' ? 'Vinted' : 'Wallapop';
+  return [
+    `Eres un vendedor experto de segunda mano en España que redacta anuncios que venden rápido en ${app}.`,
+    'Las fotos son todas del MISMO artículo. Analízalas y devuelve SOLO un JSON válido, sin texto alrededor, con esta forma:',
+    '{"titulo": string, "descripcion": string, "prenda": string, "marca": string|null, "talla": string|null, "color": string,',
+    ' "material": string|null, "estado": string, "cat": "top"|"bottom"|"dress"|"shoes"|"bag"|"acc"|"otro",',
+    ' "publico": "mujer"|"hombre"|"unisex"|"infantil", "precio": {"min": number, "max": number, "recomendado": number},',
+    ' "etiquetas": [string], "fotos_que_faltan": [string], "defectos_visibles": [string]}',
+    'Reglas, sin excepciones:',
+    '- No inventes nada. Marca, talla o material solo si se leen en una etiqueta o logo de las fotos; si no, null.',
+    `- "estado": uno de ${JSON.stringify(ESTADOS[plat])}, según lo que se ve. Ante la duda, el más prudente.`,
+    `- "titulo": máximo ${plat === 'vinted' ? 60 : 50} caracteres, con lo que la gente busca: prenda + marca (si se ve) + rasgo clave + color. Sin emojis, sin mayúsculas sostenidas, sin "precioso".`,
+    '- "descripcion": español natural de España, 3 a 6 frases cortas, primera persona del vendedor, sin emojis ni hashtags.',
+    '  Incluye qué es, cómo es (corte, detalles que se ven), estado real con los defectos visibles, y una línea "Talla: …" y "Medidas en plano: …"',
+    '  dejando "__" donde el dato no se ve, para que el vendedor lo rellene. Cierra con disponibilidad para envío.',
+    '- "precio": euros, precio realista de segunda mano en España para ese artículo y estado. Números enteros.',
+    '- "cat": top (camisetas, camisas, sudaderas, chaquetas, abrigos), bottom (pantalones, faldas, shorts), dress (vestidos, monos), shoes, bag, acc; "otro" si no es ropa ni complemento (libros, objetos).',
+    '- "etiquetas": 4 a 6 palabras de búsqueda en minúsculas.',
+    '- "fotos_que_faltan": 0 a 3 fotos concretas que subirían la confianza (por ejemplo la etiqueta de la talla, la suela, un detalle). Vacío si no falta nada.',
+    '- "defectos_visibles": lista vacía si no se ve ninguno. No supongas defectos que no se ven.',
+  ].join('\n');
+}
+async function anuncio(req, env, h) {
+  if (!env.XKIRO_KEY) return json({ error: 'xkiro-clave' }, 502, h);
+  let fd;
+  try { fd = await req.formData(); } catch (e) { return json({ error: 'foto' }, 400, h); }
+  const plat = fd.get('aspect') === 'vinted' ? 'vinted' : 'wallapop';
+  const fotos = fd.getAll('photo').filter((f) => f && typeof f !== 'string' && f.size <= 2_000_000).slice(0, 4);
+  if (!fotos.length) return json({ error: 'foto' }, 400, h);
+  const content = [{ type: 'text', text: anuncioPrompt(plat) }];
+  for (const f of fotos) content.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${b64(await f.arrayBuffer())}` } });
+  const modelos = env.REVISOR_MODEL ? [env.REVISOR_MODEL] : REVISORES;
+  for (const model of modelos) {
+    try {
+      const r = await fetch(`${XKIRO}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${env.XKIRO_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, temperature: 0.3, max_tokens: 2500, messages: [{ role: 'user', content }] }),
+      });
+      if (!r.ok) { console.log('anuncio error', model, r.status, (await r.text().catch(() => '')).slice(0, 300)); continue; }
+      const j = await r.json().catch(() => null);
+      const txt = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+      const m = typeof txt === 'string' && txt.match(/\{[\s\S]*\}/);
+      if (!m) { console.log('anuncio sin json', model, String(txt).slice(0, 200)); continue; }
+      const a = JSON.parse(m[0]);
+      return json({ anuncio: limpiarAnuncio(a, plat), modelo: model }, 200, h);
+    } catch (e) { console.log('anuncio excepcion', model, String(e).slice(0, 200)); }
+  }
+  return json({ error: 'modelo' }, 502, h);
+}
+function recortaTitulo(t, max) {
+  if (typeof t !== 'string' || !t.trim()) return null;
+  t = t.trim().replace(/\s+/g, ' ');
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max + 1);
+  return cut.slice(0, cut.lastIndexOf(' ') > 20 ? cut.lastIndexOf(' ') : max).replace(/[,;:\-\s]+$/, '');
+}
+function limpiarAnuncio(a, plat) {
+  const str = (v, n) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : null);
+  const arr = (v, n) => (Array.isArray(v) ? v.map((x) => String(x).trim()).filter(Boolean).slice(0, n) : []);
+  const num = (v) => (Number.isFinite(Number(v)) ? Math.max(1, Math.round(Number(v))) : null);
+  const p = a.precio || {};
+  const cat = ['top', 'bottom', 'dress', 'shoes', 'bag', 'acc', 'otro'].includes(a.cat) ? a.cat : 'otro';
+  const estado = ESTADOS[plat].includes(a.estado) ? a.estado : ESTADOS[plat][plat === 'vinted' ? 3 : 2];
+  let min = num(p.min), max = num(p.max), rec = num(p.recomendado);
+  if (min && max && min > max) [min, max] = [max, min];
+  if (rec && min && rec < min) rec = min;
+  if (rec && max && rec > max) rec = max;
+  return {
+    titulo: recortaTitulo(a.titulo, plat === 'vinted' ? 60 : 50) || 'Artículo de segunda mano',
+    descripcion: str(a.descripcion, 1500) || '',
+    prenda: str(a.prenda, 60), marca: str(a.marca, 40), talla: str(a.talla, 20), color: str(a.color, 40),
+    material: str(a.material, 60), estado, cat,
+    publico: ['mujer', 'hombre', 'unisex', 'infantil'].includes(a.publico) ? a.publico : 'unisex',
+    precio: { min, max, recomendado: rec || min || max },
+    etiquetas: arr(a.etiquetas, 6), fotos_que_faltan: arr(a.fotos_que_faltan, 3), defectos_visibles: arr(a.defectos_visibles, 5),
+  };
+}
+
 function headersFor(req, env) {
   const origin = req.headers.get('Origin') || '';
   const list = (env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -275,6 +360,7 @@ export default {
 
     const path = new URL(req.url).pathname;
     if (req.method === 'GET' && path === '/estado') return json({ ok: true, xkiro: !!env.XKIRO_KEY, reserva: !!env.AI }, 200, h);
+    if (req.method === 'POST' && path === '/anuncio') return anuncio(req, env, h);
     if (req.method !== 'POST' || path !== '/rehacer') return json({ error: 'ruta' }, 404, h);
 
     let fd;
