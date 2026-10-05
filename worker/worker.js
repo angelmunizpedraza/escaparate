@@ -17,6 +17,8 @@ const MODELS = {
   alta: '@cf/black-forest-labs/flux-2-klein-9b',
 };
 const SIZES = { wallapop: [1024, 1024], vinted: [768, 1024] };
+// GPT Image solo admite 1024x1024, 1024x1536, 1536x1024, 1024x1792, 1792x1024, 512x512 y 256x256
+const XKIRO_SIZES = { wallapop: '1024x1024', vinted: '1024x1536' };
 const XKIRO = 'https://api.xkiro.com/v1';
 const XKIRO_MODEL = 'openai/gpt-image-2.5'; // el único de xKiro que acepta foto de origen
 const XKIRO_WAIT_MS = 150000;      // espera máxima por foto generada
@@ -187,7 +189,7 @@ async function xkiro(env, photo, o, w, hgt, fixes) {
   form.append('image', photo, 'item.jpg');
   form.append('model', XKIRO_MODEL);
   form.append('prompt', editPrompt(o, fixes));
-  form.append('size', `${w}x${hgt}`);
+  form.append('size', XKIRO_SIZES[o.aspect]);
   // sin 'n': xKiro no lo acepta en multipart y por defecto ya genera una imagen
   const r = await fetch(`${XKIRO}/images/edits`, { method: 'POST', headers: auth, body: form });
   const job = await r.json().catch(() => ({}));
