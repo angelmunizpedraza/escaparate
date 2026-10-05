@@ -8,3 +8,9 @@ binding = "AI"
 [vars]
 ALLOWED_ORIGINS = "https://angelmunizpedraza.github.io"
 # Secretos (nunca en este fichero): npx wrangler secret put APP_KEY  y  npx wrangler secret put XKIRO_KEY
+
+# Clave de xKiro guardada en el Secrets Store de la cuenta (el valor nunca está aquí)
+[[secrets_store_secrets]]
+binding = "XKIRO_KEY"
+store_id = "4d0c95a36ab44133be951f9ec4bdd420"
+secret_name = "XKIRO_KEY"

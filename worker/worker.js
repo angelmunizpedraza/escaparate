@@ -258,6 +258,10 @@ function json(body, status, h) {
 
 export default {
   async fetch(req, env) {
+    // XKIRO_KEY puede venir como secreto del Worker (texto) o enlazado desde el Secrets Store (objeto con .get()).
+    if (env.XKIRO_KEY && typeof env.XKIRO_KEY.get === 'function') {
+      try { env = { ...env, XKIRO_KEY: await env.XKIRO_KEY.get() }; } catch (e) { env = { ...env, XKIRO_KEY: '' }; }
+    }
     const { ok, h } = headersFor(req, env);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
     if (!ok) return json({ error: 'origen' }, 403, h);
