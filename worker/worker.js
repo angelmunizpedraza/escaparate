@@ -188,7 +188,7 @@ async function xkiro(env, photo, o, w, hgt, fixes) {
   form.append('model', XKIRO_MODEL);
   form.append('prompt', editPrompt(o, fixes));
   form.append('size', `${w}x${hgt}`);
-  form.append('n', '1');
+  // sin 'n': xKiro no lo acepta en multipart y por defecto ya genera una imagen
   const r = await fetch(`${XKIRO}/images/edits`, { method: 'POST', headers: auth, body: form });
   const job = await r.json().catch(() => ({}));
   if (!r.ok || !job.id) {
