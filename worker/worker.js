@@ -159,7 +159,7 @@ async function revisarCon(env, model, origB64, outUrl, o) {
     headers: { Authorization: `Bearer ${env.XKIRO_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!r.ok) return null;
+  if (!r.ok) { console.log('revisor error', model, r.status, (await r.text().catch(() => '')).slice(0, 300)); return null; }
   const j = await r.json().catch(() => null);
   const txt = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
   const m = typeof txt === 'string' && txt.match(/\{[\s\S]*\}/);
@@ -192,8 +192,11 @@ async function xkiro(env, photo, o, w, hgt, fixes) {
   const r = await fetch(`${XKIRO}/images/edits`, { method: 'POST', headers: auth, body: form });
   const job = await r.json().catch(() => ({}));
   if (!r.ok || !job.id) {
-    const detail = (job.error && (job.error.code || job.error.message)) || `HTTP ${r.status}`;
-    if (r.status === 400) throw new Fallo('bloqueada', detail);
+    const detail = `HTTP ${r.status} ${(job.error && [job.error.code, job.error.message].filter(Boolean).join(': ')) || ''}`.trim();
+    console.log('xkiro edits error', detail);
+    // 400 solo es «bloqueada» si el mensaje habla de política de contenido; si no, es un fallo de formato de la petición
+    if (r.status === 400 && /policy|blocked|safety|moderat/i.test(detail)) throw new Fallo('bloqueada', detail);
+    if (r.status === 400 || r.status === 422) throw new Fallo('peticion', detail);
     if (r.status === 401 || r.status === 403) throw new Fallo('xkiro-clave', detail);
     throw new Fallo(r.status === 402 || r.status === 429 ? 'cupo' : 'modelo', detail);
   }
@@ -210,7 +213,8 @@ async function xkiro(env, photo, o, w, hgt, fixes) {
       if (!img.ok) throw new Fallo('modelo', `CDN ${img.status}`);
       return { b64: b64(await img.arrayBuffer()), url: j.data[0].url };
     }
-    if (j.status === 'blocked') throw new Fallo('bloqueada', 'blocked');
+    if (j.status === 'blocked') { console.log('xkiro job blocked', JSON.stringify(j.error || {})); throw new Fallo('bloqueada', 'blocked'); }
+    if (j.status === 'failed') console.log('xkiro job failed', JSON.stringify(j.error || {}));
     if (j.status === 'failed') throw new Fallo('modelo', (j.error && j.error.message) || 'failed');
   }
   throw new Fallo('modelo', 'timeout');
@@ -283,7 +287,7 @@ export default {
     }
     const [w, hgt] = SIZES[o.aspect];
 
-    const status = { cupo: 429, bloqueada: 400, 'xkiro-clave': 502, modelo: 502 };
+    const status = { cupo: 429, bloqueada: 400, 'xkiro-clave': 502, modelo: 502, peticion: 502 };
     let primero = null;
     if (env.XKIRO_KEY) {
       const t0 = Date.now();
